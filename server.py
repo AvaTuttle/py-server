@@ -1,5 +1,6 @@
 from flask import Flask, request
 import json 
+from config import db
 
 app = Flask(__name__)
 
@@ -25,6 +26,10 @@ def aboutGet():
 
 #create a anew route /greet/{name}, this route should accept name as part of the urland areturn an html message saying "hello {name}"
 
+def fix_id(obj):
+    obj["_id"] = str(obj["_id"])
+    return obj
+
 @app.get("/greet/<name>")
 def greet(name):
     return f"<h1 style=color:blue>Hello, {name}!</h1>"
@@ -35,24 +40,31 @@ def firewall_message():
     return "<h1 style=color:red>Access Denied</h1><p>Your IP has been restricted by the firewall. Please contact the administrator if you believe this is an error.</p>", 403
 
 # #############
-products = []
+#products = []
+
+
 @app.get("/api/products")
 def get_products():
+    products = []
+    curser = db.products.find({})
+    for prod in curser:
+        products.append(fix_id(prod))
     return json.dumps(products)
 
 @app.post("/api/products")
 def save_products():
     item = request.get_json()
     print(item)
-    products.append(item)
-    return json.dumps(item)
+    #products.append(item)  # db db.products.insert_one(item)
+    db.products.insert_one(item)
+    return json.dumps(fix_id(item))
 
 @app.put("/api/products/<int:index>")
 def update_products(index):
     updated_item=request.get_json()
     if 0<= index <=len(products):
-        products[index] = updated_item
-        return json.dumps(updated_item)
+        products[index] = updated_item  
+        return json.dumps(updated_item)   #(fixx_id(item))
     else:
         return "that index does not exist"
     
