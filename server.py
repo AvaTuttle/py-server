@@ -1,92 +1,103 @@
-from flask import Flask, request
-import json 
+from flask import Flask, request, jsonify
+import json
 from config import db
 
 app = Flask(__name__)
 
+# Helper function to convert ObjectId to string
+def fix_id(obj):
+    obj["_id"] = str(obj["_id"])
+    return obj
+
+# Root endpoint with a welcome message
 @app.get("/")
 def home():
-    return "hello from flask"
+    return "Welcome to the Product Catalog API"
 
-#endpoints
+# Test endpoint
 @app.get("/test")
 def test():
     return "you hackin' buster?"
 
-# endpoint using json
+# About endpoint returning JSON
 @app.get("/api/about")
 def aboutGet():
     me = {"name": "Ava"}
     return json.dumps(me)
 
-#example
-# @app.post("/")
-# def homePost():
-# return "hello from flask post"
-
-#create a anew route /greet/{name}, this route should accept name as part of the urland areturn an html message saying "hello {name}"
-
-def fix_id(obj):
-    obj["_id"] = str(obj["_id"])
-    return obj
-
+# Greet endpoint with name in URL
 @app.get("/greet/<name>")
 def greet(name):
     return f"<h1 style=color:blue>Hello, {name}!</h1>"
 
-#create a firewall message
+# Firewall message endpoint
 @app.get("/firewall")
 def firewall_message():
     return "<h1 style=color:red>Access Denied</h1><p>Your IP has been restricted by the firewall. Please contact the administrator if you believe this is an error.</p>", 403
 
-# #############
-#products = []
-
-
-@app.get("/api/products")
-def get_products():
+# Retrieve all products from the catalog
+@app.get("/api/catalog")
+def get_catalog():
     products = []
-    curser = db.products.find({})
-    for prod in curser:
+    cursor = db.products.find({})
+    for prod in cursor:
         products.append(fix_id(prod))
     return json.dumps(products)
 
-@app.post("/api/products")
-def save_products():
+# Save a new product to the catalog
+@app.post("/api/catalog")
+def save_product():
     item = request.get_json()
-    print(item)
-    #products.append(item)  # db db.products.insert_one(item)
     db.products.insert_one(item)
     return json.dumps(fix_id(item))
 
+# Calculate total value of catalog
+@app.get("/api/reports/total")
+def total_value():
+    cursor = db.products.find({})
+    total = sum(prod["price"] * prod["quantity"] for prod in cursor if "price" in prod and "quantity" in prod)
+    return jsonify({"total_value": total})
+
+# Retrieve products by category
+@app.get("/api/products/<category>")
+def get_products_by_category(category):
+    products = []
+    cursor = db.products.find({"category": category})
+    for prod in cursor:
+        products.append(fix_id(prod))
+    return json.dumps(products)
+
+# Update a product by index (index-based update for in-memory data)
 @app.put("/api/products/<int:index>")
-def update_products(index):
-    updated_item=request.get_json()
-    if 0<= index <=len(products):
-        products[index] = updated_item  
-        return json.dumps(updated_item)   #(fixx_id(item))
+def update_product(index):
+    updated_item = request.get_json()
+    products = list(db.products.find({}))
+    if 0 <= index < len(products):
+        db.products.update_one({"_id": products[index]["_id"]}, {"$set": updated_item})
+        return json.dumps(fix_id(updated_item))
     else:
-        return "that index does not exist"
-    
+        return "Index out of range", 404
 
+# Delete a product by index
 @app.delete("/api/products/<int:index>")
-def delete_products(index):
-    if 0<= index <=len(products):
-        delete_item = products.pop(index)
-        return json.dumps(delete_item)
+def delete_product(index):
+    products = list(db.products.find({}))
+    if 0 <= index < len(products):
+        deleted_item = db.products.find_one_and_delete({"_id": products[index]["_id"]})
+        return json.dumps(fix_id(deleted_item))
     else:
-        return "that index does not exist"
-    
-# patch -- the method to update a specific element into python is: .update
+        return "Index out of range", 404
 
+# Update specific fields of a product by index
 @app.patch("/api/products/<int:index>")
-def update_item(index):
-    if 0 <= index <= len(products):
-        updated_field = request.get_json()
-        products(index).update(updated_field)
-        return json.dumps(updated_field)
+def update_item_fields(index):
+    products = list(db.products.find({}))
+    if 0 <= index < len(products):
+        updated_fields = request.get_json()
+        db.products.update_one({"_id": products[index]["_id"]}, {"$set": updated_fields})
+        return json.dumps(fix_id(updated_fields))
     else:
-        return "That index does not exist"
+        return "Index out of range", 404
 
-
-app.run(debug=True)
+if __name__ == "__main__":
+    app.run(debug=True)
