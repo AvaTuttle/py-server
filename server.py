@@ -1,8 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 import json
 from config import db
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app) #warning! this disables CORS policy
 
 # Helper function to convert ObjectId to string
 def fix_id(obj):
@@ -36,7 +38,7 @@ def firewall_message():
     return "<h1 style=color:red>Access Denied</h1><p>Your IP has been restricted by the firewall. Please contact the administrator if you believe this is an error.</p>", 403
 
 # Retrieve all products from the catalog
-@app.get("/api/catalog")
+@app.get("/api/products")
 def get_catalog():
     products = []
     cursor = db.products.find({})
@@ -45,7 +47,7 @@ def get_catalog():
     return json.dumps(products)
 
 # Save a new product to the catalog
-@app.post("/api/catalog")
+@app.post("/api/products")
 def save_product():
     item = request.get_json()
     db.products.insert_one(item)
@@ -99,5 +101,39 @@ def update_item_fields(index):
     else:
         return "Index out of range", 404
 
-if __name__ == "__main__":
+
+@app.post("/api/coupons")
+def save_coupon():
+    item = request.get_json()
+    db.coupons.insert_one(item)
+    return json.dumps(fix_id(item))
+
+
+@app.get("py ")
+def get_coupons():
+    coupons = []
+    curser = db.coupons.find({})
+    for cp in curser:
+        coupons.append(fix.id(cp))
+
+    return json.dumps(coupons)
+
+
+@app.get("/api/coupons/<code>")
+def validate_coupon(code):
+    coupon = db.coupons.find_one({"code": code})
+    if coupon == None:
+        print("error: invalid coupon")
+        return abort(404, "Invalid Code")
+    return json.dumps(fix.id(coupon))
+
+
+
+
+
+
+
+
+
+if __name__ == "__main__":    
     app.run(debug=True)
