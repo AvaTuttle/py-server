@@ -109,7 +109,7 @@ def save_coupon():
     return json.dumps(fix_id(item))
 
 
-@app.get("py ")
+@app.get("/api/coupons")
 def get_coupons():
     coupons = []
     curser = db.coupons.find({})
